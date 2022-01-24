@@ -6,6 +6,7 @@ package:
 plugins:
   - serverless-webpack
   - serverless-dynamodb-local
+  - serverless-iam-roles-per-function
   - serverless-offline
 
 custom:
@@ -21,6 +22,7 @@ custom:
       port: 8000
       inMemory: true
       migrate: true
+  bucket: ignitecertificatesbucket
 
 provider:
   name: aws
@@ -32,18 +34,24 @@ provider:
       statements:
         - Effect: Allow
           Action:
-            - dynamodb:Query
-            - dynamodb:Scan
-            - dynamodb:GetItem
-            - dynamodb:PutItem
-            - dynamodb:UpdateItem
-            - dynamodb:DeleteItem
+            - dynamodb:*
           Resource:
-            - Fn::GetAtt: [ users_certificates, Arn ]
+            - "*"
+        - Effect: Allow
+          Action:
+            - s3:*
+          Resource:
+            - "*"
 
 functions:
   generateCertificate:
     handler: src/functions/generateCertificate.handle
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Query
+          - dynamodb:PutItem
+        Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/users_certificates"
     events:
       - http:
           path: /generate-certificate
@@ -51,6 +59,11 @@ functions:
           cors: true
   verifyCertificate:
     handler: src/functions/verifyCertificate.handle
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Query
+        Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/users_certificates"
     events:
       - http:
           path: /verify-certificate/{id}
